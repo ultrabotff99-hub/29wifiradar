@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -27,29 +27,37 @@ jobs:
       - name: Arrange project
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
           B=app/src/main
-
           mkdir -p "$B/java/com/tonix/wifireader"
           mkdir -p "$B/res/values"
           mkdir -p "$B/res/drawable"
           mkdir -p "$B/res/mipmap-anydpi-v26"
 
-          [ ! -f AndroidManifest.xml ] || mv -f AndroidManifest.xml "$B/"
-          [ ! -f MainActivity.kt ] || mv -f MainActivity.kt "$B/java/com/tonix/wifireader/"
-          [ ! -f RadarView.kt ] || mv -f RadarView.kt "$B/java/com/tonix/wifireader/"
-          [ ! -f MapScreen.kt ] || mv -f MapScreen.kt "$B/java/com/tonix/wifireader/"
-          [ ! -f SignalMath.kt ] || mv -f SignalMath.kt "$B/java/com/tonix/wifireader/"
-          [ ! -f TrackerScreen.kt ] || mv -f TrackerScreen.kt "$B/java/com/tonix/wifireader/"
-          [ ! -f ARScreen.kt ] || mv -f ARScreen.kt "$B/java/com/tonix/wifireader/"
-          [ ! -f colors.xml ] || mv -f colors.xml "$B/res/values/"
-          [ ! -f ic_fg.xml ] || mv -f ic_fg.xml "$B/res/drawable/"
-          [ ! -f ic_launcher.xml ] || mv -f ic_launcher.xml "$B/res/mipmap-anydpi-v26/"
+          for f in MainActivity.kt RadarView.kt ARScreen.kt TrackerScreen.kt MapScreen.kt SignalMath.kt; do
+            if [ -f "$f" ]; then
+              mv -f "$f" "$B/java/com/tonix/wifireader/"
+            fi
+          done
 
-          if [ -f strings.xml ]; then
-            mv -f strings.xml "$B/res/values/"
-          else
+          if [ -f AndroidManifest.xml ]; then
+            mv -f AndroidManifest.xml "$B/"
+          fi
+
+          if [ -f colors.xml ]; then
+            mv -f colors.xml "$B/res/values/"
+          fi
+
+          if [ -f ic_fg.xml ]; then
+            mv -f ic_fg.xml "$B/res/drawable/"
+          fi
+
+          if [ -f ic_launcher.xml ]; then
+            mv -f ic_launcher.xml "$B/res/mipmap-anydpi-v26/"
+          fi
+
+          if [ ! -f "$B/res/values/strings.xml" ]; then
             echo '<resources><string name="app_name">WiFi Reader</string></resources>' > "$B/res/values/strings.xml"
           fi
 
@@ -61,14 +69,12 @@ jobs:
                   gradlePluginPortal()
               }
           }
-
           dependencyResolutionManagement {
               repositories {
                   google()
                   mavenCentral()
               }
           }
-
           rootProject.name = "WiFiReader"
           include ':app'
           EOF
@@ -121,17 +127,8 @@ jobs:
           }
           EOF
 
-      - name: Accept Android SDK licenses
-        run: |
-          mkdir -p "$ANDROID_HOME/licenses"
-          printf '%s\n' \
-            '24333f8a63b6825ea9c5514f83c2829b004d1fee' \
-            '8933bad161af4178b1185d1a37fbf41ea5269c55' \
-            'd56f5187479451eabf01fb78af6dfcb131a6481e' \
-            > "$ANDROID_HOME/licenses/android-sdk-license"
-
       - name: Build debug APK
-        run: gradle assembleDebug --console=plain
+        run: gradle assembleDebug --stacktrace --console=plain
 
       - name: Upload APK
         if: success()
@@ -139,4 +136,5 @@ jobs:
         with:
           name: WiFiReader-APK
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
           
